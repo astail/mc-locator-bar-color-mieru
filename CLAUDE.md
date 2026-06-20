@@ -10,7 +10,7 @@
 ## ビルド / 実行
 
 ```bash
-./deploy.sh                       # JDK25 + Maven でビルド → target/LocatorColors-1.0.0.jar
+./deploy.sh                       # JDK25 + Maven でビルド → target/LocatorColors-1.1.0.jar
 JAVA_HOME=/path/to/jdk25 ./deploy.sh   # 別の JDK を使う場合
 mvn -B clean package              # 直接ビルド
 ```
@@ -22,17 +22,20 @@ mvn -B clean package              # 直接ビルド
 ## アーキテクチャ（src/main/java/io/github/astail/locatorcolors/）
 
 - `LocatorColorsPlugin` … 本体。コマンド登録、参加/退出リスナー、2 秒ごとの定期更新タスク、無効化時の復元。全体 ON/OFF 状態（`active`）を保持。
-- `TabColorizer` … タブ名の付与/解除。差分更新（同じ内容なら再送しない）、初回に元の名前を退避して解除時に戻す。色の優先順位（チーム色→UUID 由来）もここ。
+- `TabColorizer` … タブ名の付与/解除。差分更新（同じ内容なら再送しない）、初回に元の名前を退避して解除時に戻す。色の優先順位（個別色→チーム色→UUID 由来）もここ。
 - `WaypointColor` … UUID → ロケーター色の純粋ロジック。Bukkit 非依存。
+- `WaypointIconReader` … `/waypoint` 個別色（`locatorBarIcon.color`）を NMS リフレクションで読む。公開メンバーのみ参照し、失敗時は自動で無効化＆フォールバック。
 - `LocatorColorsCommand` … `/locatorcolors [on|off|status]`（全体 ON/OFF、`locatorcolors.admin`）。
 
 ## 最重要の不変条件：色計算をバニラと一致させること
 
 タブ色がバー色と**完全一致**することがこのプラグインの存在意義。色の決め方はバニラ準拠：
 
-1. （API 非公開のため未対応）`/waypoint` で明示設定された `locatorBarIcon.color`
+1. `/waypoint` で明示設定された `locatorBarIcon.color`（最優先）。`WaypointIconReader` が公開メソッド `WaypointTransmitter#waypointIcon()` と公開フィールド `Waypoint.Icon#color` をリフレクションで読む（mojmap 実行時の実名。取得不可なら警告して 2/3 にフォールバック）。
 2. チーム色（メインスコアボード）。チーム色が黒 `0x000000` のときはバー用代替色 `0x2F2F30` に置換
 3. UUID 由来の既定色 = `ARGB.setBrightness(ARGB.color(255, uuid.hashCode()), 0.9F)`
+
+個別色は `/waypoint` 後すぐには変わらず、定期更新（2 秒）のタイミングで反映される。
 
 `WaypointColor` は `net.minecraft.util.ARGB` の `color` / `setBrightness` を**1対1で移植**したもの。
 **この計算ロジック（演算順序・float/int・`Math.round`）は変更しないこと。** 変えると色がずれて意味が無くなる。

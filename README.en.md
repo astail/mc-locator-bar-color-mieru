@@ -107,8 +107,12 @@ lp user <name> permission set locatorcolors.show false
 
 ## How it works (technical notes)
 
-- **Reproducing the color**: When there is no team color, the client computes the dot color from the UUID (Minecraft 26.1.2 `LocatorBarRenderer`). The formula is `ARGB.setBrightness(ARGB.color(255, uuid.hashCode()), 0.9F)`. The plugin ports the relevant `net.minecraft.util.ARGB` logic **one-to-one** and computes the same color on the server. Since `UUID#hashCode()` is standard JDK and identical on both sides, **the bar color and the Tab color match exactly** (no NMS involved).
-- **Team color priority**: When transmitting the bar, vanilla resolves the icon color in `Waypoint.Icon#cloneAndAssignStyle`, **preferring the team color** if present (substituting `0x2F2F30` when the team color is black, for bar rendering). The plugin uses the same priority: the team color on the server main scoreboard, then the UUID-derived color.
+- **Color priority**: matching vanilla's `Waypoint.Icon#cloneAndAssignStyle` (icon color at transmit time) and the client `LocatorBarRenderer`, the color is chosen in this order:
+  1. the **color set explicitly** via `/waypoint modify <target> color …` (highest priority)
+  2. the **team color** (server main scoreboard; black is substituted with the bar's `0x2F2F30`)
+  3. the **UUID-derived default color**
+- **Reading the explicit color (`/waypoint`)**: that color lives in the entity's internal `locatorBarIcon.color`, not exposed by paper-api, so it is read by reflection using **public members only** (`WaypointTransmitter#waypointIcon()` and `Waypoint.Icon#color`). Where it cannot be read, the plugin logs a warning once and falls back to the team/UUID color.
+- **Reproducing the UUID color**: with neither a team nor an explicit color, the client computes the color from the UUID (formula `ARGB.setBrightness(ARGB.color(255, uuid.hashCode()), 0.9F)`). The plugin ports the relevant `net.minecraft.util.ARGB` logic **one-to-one**. Since `UUID#hashCode()` is standard JDK and identical on both sides, **the bar color and the Tab color match exactly** (this computation itself needs no NMS).
 - **Applying to Tab**: via `Player#playerListName(Component)`, prefixing a `●` dot in the locator color and coloring the name in the same color. Team prefix/suffix are preserved.
 - **Diff updates**: each player's list name is compared and re-sent **only when the color or related info changes**. Colors are nearly static (UUID-derived ones never change), so it applies on join and runs a light **every-2-seconds** check to catch things like team-color changes.
 - **Cost**: the main cost is just "online players × string compare"; no packets are sent when nothing changes. It runs on the main thread (`runTaskTimer`) because it reads world state.
@@ -127,7 +131,7 @@ The bundled `deploy.sh` builds it (**no Docker**).
 ./deploy.sh
 ```
 
-Output: `target/LocatorColors-1.0.0.jar`
+Output: `target/LocatorColors-1.1.0.jar`
 
 `deploy.sh` runs `mvn clean package` with JDK 25. To use a different JDK, override with `JAVA_HOME=/path/to/jdk25 ./deploy.sh`. To build directly:
 
@@ -154,17 +158,17 @@ gh release download --repo astail/mc-locator-bar-color-mieru --pattern '*.jar'
 
 ### B. Build it yourself
 
-Produce `target/LocatorColors-1.0.0.jar` via [Build](#build).
+Produce `target/LocatorColors-1.1.0.jar` via [Build](#build).
 
 ### Placement
 
 ```bash
 # Bind mount (copy into the host plugins directory)
-cp target/LocatorColors-1.0.0.jar /path/to/data/plugins/
+cp target/LocatorColors-1.1.0.jar /path/to/data/plugins/
 docker restart <container>
 
 # Named volume etc. (copy into the container)
-docker cp target/LocatorColors-1.0.0.jar <container>:/data/plugins/
+docker cp target/LocatorColors-1.1.0.jar <container>:/data/plugins/
 docker restart <container>
 ```
 
@@ -186,13 +190,13 @@ services:
       VERSION: "26.2"
       PAPER_CHANNEL: "experimental"
       PLUGINS: |
-        https://github.com/astail/mc-locator-bar-color-mieru/releases/download/v1.0.0/LocatorColors-1.0.0.jar
+        https://github.com/astail/mc-locator-bar-color-mieru/releases/download/v1.1.0/LocatorColors-1.1.0.jar
     volumes:
       - ./data:/data
     restart: unless-stopped
 ```
 
-`PLUGINS` accepts multiple newline-separated entries. When you update the version, change `v1.0.0` and the file name in the URL to match the new release.
+`PLUGINS` accepts multiple newline-separated entries. When you update the version, change `v1.1.0` and the file name in the URL to match the new release.
 
 A successful start logs:
 
@@ -227,6 +231,7 @@ A successful start logs:
 - **Bar not showing**: the bar itself follows the `locatorBar` game rule. Check `/gamerule locatorBar true` (Tab coloring works regardless of bar visibility).
 - **Tab name override**: this plugin sets `playerListName`. It may conflict with other Tab-managing plugins. Use `/locatorcolors off` to stop coloring and restore names.
 - **Team prefix/suffix**: preserved, but the name itself is colored with the locator color (when the team has a color, that equals the bar color, so it looks consistent).
-- **Colors set via `/waypoint`**: a color explicitly set per player by an admin via `/waypoint modify <target> color ...` lives only in server internals (not exposed by the API), so it cannot be reflected. In that case the plugin falls back to the team/UUID color (known limitation).
+- **Colors set via `/waypoint`**: a color set with `/waypoint modify <target> color <color>` (or `color hex <hex>`) is reflected with the **highest priority**. The update happens on the periodic refresh, so the color changes within **about 2 seconds**. `color reset` clears it and the team/UUID color returns.
+  - That color is a server-internal value read by reflection. Where it cannot be read (e.g. an obfuscated server) the plugin falls back to the team/UUID color and logs a warning once.
 - **Players only**: both the Locator Bar and the Tab list target players.
 - The `paper-api` build number can track server updates (e.g. `26.1.2.build.70-stable`).

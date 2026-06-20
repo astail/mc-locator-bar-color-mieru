@@ -2,6 +2,7 @@ package io.github.astail.locatorcolors;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.UUID;
 
 import net.kyori.adventure.text.Component;
@@ -32,6 +33,9 @@ final class TabColorizer {
 
     private final LocatorColorsPlugin plugin;
 
+    /** /waypoint で個別設定された色を読む（NMS リフレクション。取得不可なら自動で無効化）。 */
+    private final WaypointIconReader iconReader;
+
     /** 直近に適用したタブ名（差分検出用）。同じ内容なら再送しない。 */
     private final Map<UUID, Component> applied = new HashMap<>();
     /** 初めて装飾する直前のタブ名（解除時に戻す。値が null＝バニラ既定名）。 */
@@ -39,6 +43,7 @@ final class TabColorizer {
 
     TabColorizer(LocatorColorsPlugin plugin) {
         this.plugin = plugin;
+        this.iconReader = new WaypointIconReader(plugin.getLogger());
     }
 
     /** 全オンラインプレイヤーを現在の状態に合わせて更新する（差分があるときだけ送信）。 */
@@ -104,8 +109,19 @@ final class TabColorizer {
         return Component.text(MARKER, color).append(body);
     }
 
-    /** ロケーターバーに表示される色（0xRRGGBB）を決める。チーム色優先、無ければ UUID 由来の既定色。 */
+    /**
+     * ロケーターバーに表示される色（0xRRGGBB）を、バニラと同じ優先順位で決める。
+     * <ol>
+     *   <li>{@code /waypoint modify … color} で個別設定された色（最優先）</li>
+     *   <li>チーム色（黒はバーで暗すぎるため代替色 {@code 0x2F2F30} へ）</li>
+     *   <li>UUID 由来の既定色</li>
+     * </ol>
+     */
     private int resolveRgb(Player player, Team team) {
+        OptionalInt explicit = iconReader.explicitRgb(player);
+        if (explicit.isPresent()) {
+            return explicit.getAsInt(); // /waypoint の個別色を最優先
+        }
         if (team != null && team.hasColor()) {
             int rgb = team.color().value() & 0xFFFFFF;
             return rgb == 0 ? BLACK_REPLACEMENT_RGB : rgb; // 黒はバーで暗すぎるため代替色へ

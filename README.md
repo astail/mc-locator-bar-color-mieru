@@ -110,8 +110,12 @@ lp user <name> permission set locatorcolors.show false
 
 ## 仕組み（技術メモ）
 
-- **色の再現**: ロケーターバーのドット色は、チーム色が無い場合クライアントが UUID から計算します（Minecraft 26.1.2 の `LocatorBarRenderer`）。式は `ARGB.setBrightness(ARGB.color(255, uuid.hashCode()), 0.9F)`。本プラグインは `net.minecraft.util.ARGB` の該当処理を**1対1で移植**してサーバー側で同じ色を求めます。`UUID#hashCode()` は JDK 標準で両者一致するため、**バー色とタブ色は完全一致**します（NMS には一切触れません）。
-- **チーム色の優先**: バニラはバー送信時に `Waypoint.Icon#cloneAndAssignStyle` でアイコン色を決め、**チーム色があればそれを優先**します（チーム色が黒のときはバー描画用の代替色 `0x2F2F30` に置換）。本プラグインも同じ優先順位で、サーバーのメインスコアボード上のチーム色 → 無ければ UUID 由来色、の順に決定します。
+- **色の優先順位**: バニラの `Waypoint.Icon#cloneAndAssignStyle`（バー送信時の色決定）とクライアント `LocatorBarRenderer` に合わせ、次の順で色を決めます。
+  1. `/waypoint modify <対象> color …` で**個別設定した色**（最優先）
+  2. **チーム色**（サーバーのメインスコアボード。チーム色が黒のときはバー描画用の代替色 `0x2F2F30` に置換）
+  3. **UUID 由来の既定色**
+- **個別色（`/waypoint`）の取得**: この色はエンティティ内部の `locatorBarIcon.color` に入り paper-api では非公開のため、**公開メンバーのみ**（`WaypointTransmitter#waypointIcon()` と `Waypoint.Icon#color`）をリフレクションで読みます。取得できない環境では一度警告を出して自動的にチーム色／UUID 色へフォールバックします。
+- **UUID 由来色の再現**: チーム色も個別色も無い場合、クライアントは UUID から色を計算します（式 `ARGB.setBrightness(ARGB.color(255, uuid.hashCode()), 0.9F)`）。本プラグインは `net.minecraft.util.ARGB` の該当処理を**1対1で移植**して同じ色を求めます。`UUID#hashCode()` は JDK 標準で両者一致するため、**バー色とタブ色は完全一致**します（この計算自体は NMS 非依存）。
 - **タブへの反映**: `Player#playerListName(Component)` で、先頭にロケーター色のドット `●` を付け、名前を同じ色で着色します。チームの接頭辞・接尾辞があれば保持します。
 - **差分更新**: 各プレイヤーの表示名を都度比較し、**色や付帯情報が変わったときだけ**送り直します。色はほぼ静的（UUID 由来は不変）なので、参加時に即適用し、チーム色変更などの取りこぼし防止に **2 秒ごと**の軽い定期チェックを併用します。
 - **負荷について**: 主コストは「オンライン人数 × 文字列比較」だけで、変化が無ければパケットは飛びません。ワールド状態を読むためメインスレッド（`runTaskTimer`）で実行します。
@@ -130,7 +134,7 @@ JDK 25 と Maven が必要です（未導入なら `brew install openjdk@25 mave
 ./deploy.sh
 ```
 
-生成物: `target/LocatorColors-1.0.0.jar`
+生成物: `target/LocatorColors-1.1.0.jar`
 
 `deploy.sh` は内部で JDK 25 を指定して `mvn clean package` を実行します。
 別の場所の JDK を使う場合は `JAVA_HOME=/path/to/jdk25 ./deploy.sh` で上書きできます。直接ビルドするなら:
@@ -158,7 +162,7 @@ gh release download --repo astail/mc-locator-bar-color-mieru --pattern '*.jar'
 
 ### B. 自分でビルドする
 
-[ビルド](#ビルド) の手順で `target/LocatorColors-1.0.0.jar` を生成します。
+[ビルド](#ビルド) の手順で `target/LocatorColors-1.1.0.jar` を生成します。
 
 ### 配置
 
@@ -166,11 +170,11 @@ gh release download --repo astail/mc-locator-bar-color-mieru --pattern '*.jar'
 
 ```bash
 # バインドマウントしている場合（ホスト側 plugins ディレクトリへコピー）
-cp target/LocatorColors-1.0.0.jar /path/to/data/plugins/
+cp target/LocatorColors-1.1.0.jar /path/to/data/plugins/
 docker restart <コンテナ名>
 
 # 名前付きボリューム等の場合（コンテナへ直接コピー）
-docker cp target/LocatorColors-1.0.0.jar <コンテナ名>:/data/plugins/
+docker cp target/LocatorColors-1.1.0.jar <コンテナ名>:/data/plugins/
 docker restart <コンテナ名>
 ```
 
@@ -192,13 +196,13 @@ services:
       VERSION: "26.2"
       PAPER_CHANNEL: "experimental"
       PLUGINS: |
-        https://github.com/astail/mc-locator-bar-color-mieru/releases/download/v1.0.0/LocatorColors-1.0.0.jar
+        https://github.com/astail/mc-locator-bar-color-mieru/releases/download/v1.1.0/LocatorColors-1.1.0.jar
     volumes:
       - ./data:/data
     restart: unless-stopped
 ```
 
-`PLUGINS` は改行区切りで複数指定できます。バージョンを更新したら、URL の `v1.0.0` とファイル名を新しいリリースに合わせて変更してください（例: `.../download/v1.1.0/LocatorColors-1.1.0.jar`）。
+`PLUGINS` は改行区切りで複数指定できます。バージョンを更新したら、URL の `v1.1.0` とファイル名を新しいリリースに合わせて変更してください（例: `.../download/v1.1.0/LocatorColors-1.1.0.jar`）。
 
 起動ログに以下が出れば成功です。
 
@@ -233,6 +237,7 @@ services:
 - **ロケーターバーが出ない**: バー自体の表示は `locatorBar` ゲームルールに従います。`/gamerule locatorBar true` を確認してください（タブの色付けはバーの表示有無に関わらず動作します）。
 - **タブ名の上書き**: 本プラグインは `playerListName` を設定します。タブ名を変更する他プラグイン（タブ管理系）と併用すると、表示が競合することがあります。`/locatorcolors off` で本プラグインの色付けを止め、元の名前へ戻せます。
 - **チームの接頭辞・接尾辞**: チームの接頭辞・接尾辞は保持しますが、名前そのものはロケーター色で着色します（チームに色がある場合はチーム色＝バー色なので見た目は一致します）。
-- **`/waypoint` で個別設定した色**: 管理者が `/waypoint modify <対象> color ...` でプレイヤーごとに**明示設定した色**は、サーバー内部（API 非公開）にのみ存在するため反映できません。この場合はチーム色／UUID 由来色にフォールバックします（既知の制限）。
+- **`/waypoint` で個別設定した色**: `/waypoint modify <対象> color <色>`（または `color hex <hex>`）で設定した色を**最優先**で反映します。反映は定期更新のタイミングで行われるため、設定から**最大約 2 秒**で色が変わります。`color reset` で個別設定を解除すると、チーム色／UUID 由来色に戻ります。
+  - この色はサーバー内部値のためリフレクションで読み取ります。取得できない環境（難読化サーバー等）では自動的にチーム色／UUID 色へフォールバックし、起動ログに一度だけ警告を出します。
 - **対象はプレイヤー**: ロケーターバー／タブともに対象はプレイヤーです。
 - `paper-api` の build 番号はサーバー更新に追従可能です（例: `26.1.2.build.70-stable`）。
