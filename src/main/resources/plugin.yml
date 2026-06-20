@@ -1,0 +1,20 @@
+name: LocatorColors
+version: 1.0.0
+main: io.github.astail.locatorcolors.LocatorColorsPlugin
+description: "ロケーターバーに表示される各プレイヤーの色を、タブ一覧（プレイヤーリスト）の名前に付けて『どの色が誰か』を分かるようにします。"
+api-version: '26.1.2'
+
+commands:
+  locatorcolors:
+    description: "タブのロケーター色表示を全体で ON/OFF します。"
+    usage: "/locatorcolors [on|off|status]"
+    permission: locatorcolors.admin
+    permission-message: "§cこのコマンドを実行する権限がありません。"
+
+permissions:
+  locatorcolors.show:
+    description: "そのプレイヤーのタブ名にロケーター色を付けることを許可します。"
+    default: true
+  locatorcolors.admin:
+    description: "/locatorcolors で表示全体を ON/OFF することを許可します。"
+    default: op
