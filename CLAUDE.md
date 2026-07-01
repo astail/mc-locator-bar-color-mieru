@@ -16,8 +16,8 @@ mvn -B clean package              # 直接ビルド
 ```
 
 - Java **25**（`maven.compiler.release=25`）。
-- 依存は `io.papermc.paper:paper-api:26.1.2.build.69-stable`（`provided`）のみ。`plugin.yml` の `api-version` は `26.1.2`。
-- サーバー更新時は paper-api の build 番号を上げるだけで追従できることが多い（例: `...build.70-stable`）。
+- 依存は `io.papermc.paper:paper-api:26.2.build.40-alpha`（`provided`）のみ。`plugin.yml` の `api-version` は `26.2`。
+- サーバー更新時は paper-api の build 番号を上げるだけで追従できることが多い（例: `...build.41-alpha`）。
 
 ## アーキテクチャ（src/main/java/io/github/astail/locatorcolors/）
 

@@ -2,7 +2,7 @@ name: LocatorColors
 version: 1.1.0
 main: io.github.astail.locatorcolors.LocatorColorsPlugin
 description: "ロケーターバーに表示される各プレイヤーの色を、タブ一覧（プレイヤーリスト）の名前に付けて『どの色が誰か』を分かるようにします。"
-api-version: '26.1.2'
+api-version: '26.2'
 
 commands:
   locatorcolors:
