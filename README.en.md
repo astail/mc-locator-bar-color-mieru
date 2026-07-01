@@ -38,7 +38,7 @@ LocatorColors computes each player's bar color on the server **with the same cal
 
 | Item | Version |
 | --- | --- |
-| Server | Paper **26.1.2** (verified on build 69) |
+| Server | Paper **26.2** (experimental channel) |
 | Java | **25** (verified on 25.0.x) |
 | Build | JDK 25 + Maven (`brew install openjdk@25 maven`) |
 | Plugin dependencies | **None** |
@@ -234,4 +234,4 @@ A successful start logs:
 - **Colors set via `/waypoint`**: a color set with `/waypoint modify <target> color <color>` (or `color hex <hex>`) is reflected with the **highest priority**. The update happens on the periodic refresh, so the color changes within **about 2 seconds**. `color reset` clears it and the team/UUID color returns.
   - That color is a server-internal value read by reflection. Where it cannot be read (e.g. an obfuscated server) the plugin falls back to the team/UUID color and logs a warning once.
 - **Players only**: both the Locator Bar and the Tab list target players.
-- The `paper-api` build number can track server updates (e.g. `26.1.2.build.70-stable`).
+- The `paper-api` build number can track server updates (e.g. `26.2.build.41-alpha`).
